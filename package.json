@@ -1,0 +1,14 @@
+{
+  "name": "tpp_web_app",
+  "version": "1.0.0",
+  "description": "Demo TPP app",
+  "author": "Christian Brindley <christian.brindley@forgerock.com",
+  "main": "tpp.js",
+  "scripts": {
+    "start": "node tpp.js"
+  },
+  "dependencies": {
+    "express": "^4.16.1",
+    "sync-request": "^2.2.0"
+  }
+}

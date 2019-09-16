@@ -1,0 +1,8 @@
+{
+    "jane.doe" : {
+        "common_name" : "Jane Doe",
+        "password" : "Passw0rd",
+        "access_token" : "",
+        "refresh_token" : ""
+    }
+}
