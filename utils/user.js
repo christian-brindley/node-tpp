@@ -35,7 +35,16 @@ add = function(userid,name,password) {
     write(users);
 }
 
+authenticate = function(userid,password) {
+    log.debug("Authenticating user [" + userid + "] password [" + password + "]");
+    var users = require(config.userdb);
+    var success = (users[userid] != null && users[userid].password == password);
+    log.debug("Authenticated: " + success);
+    return success;
+}
+
 module.exports = {
    add,
-   update 
+   update,
+   authenticate
 }; 

@@ -1,7 +1,7 @@
 {
   "jane.doe": {
     "common_name": "Jane Doe",
-    "password": "Passw0rd",
+    "password": "Passw0rd"
   },
   "john.doe": {
     "common_name": "John Doe",
