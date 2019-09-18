@@ -16,6 +16,11 @@ function write (users) {
     });
 }
 
+get = function(userid) {
+    var users = require(config.userdb);
+    return users[userid];
+}
+
 update = function(userid,key,value) {
 
     var users = require(config.userdb);
@@ -46,5 +51,6 @@ authenticate = function(userid,password) {
 module.exports = {
    add,
    update,
-   authenticate
+   authenticate,
+   get
 }; 

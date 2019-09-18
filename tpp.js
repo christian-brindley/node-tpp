@@ -5,10 +5,12 @@ var bodyParser = require('body-parser');
 
 // Funcs
 
-require ("./utils/discovery.js");
+var discovery = require ("./utils/discovery.js");
 var user = require ("./utils/user.js");
 var log = require ("./utils/log.js");
 var ui = require("./utils/ui.js");
+var ob = require("./utils/ob.js");
+
 
 var authCheck = function(req, res, next) {
     if (req.session && req.session.loggedin) {
@@ -26,15 +28,27 @@ var config = require("./conf/config.json",);
 
 // Fetch AS/RS info
 
-var asConfig = fetchRemoteConfig(config.discovery.as,config.debug);
+var asConfig = discovery.fetchRemoteConfig(config.discovery.as,config.debug);
 
 log.debug("AS details");
 var asDetails = "" +
+    "Issuer               " + asConfig.issuer + "\n" +
     "Authorise endpoint   " + asConfig.authorization_endpoint + "\n" +
     "Token endpoint       " + asConfig.token_endpoint + "\n" +
     "";
 
 log.debug(asDetails);
+
+var rsConfig = discovery.fetchRemoteConfig(config.discovery.rs,config.debug);
+var rsAccountEndpoints = rsConfig.Data.AccountAndTransactionAPI[0].Links;
+
+log.debug("RS details");
+var rsDetails = "" +
+    "Consents endpoint   " + rsAccountEndpoints.CreateAccountAccessConsent + "\n" + 
+    "Accounts endpoint   " + rsAccountEndpoints.GetAccounts + "\n" +
+    "";
+
+log.debug(rsDetails);
 
 // Constants
 
@@ -54,7 +68,20 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', authCheck, function (req, res) {
-    res.send("Welcome");
+    var accounts = ob.getAccountInfo(req.session.userid);
+    var accountSummary = "";
+    for (i = 0; accounts != null && i < accounts.size; i++) {
+        accountSummary += "<tr><td>" + accounts[i].id + "</td><td>" + accounts[i].balance + "</td></tr>";
+    }
+    var content = 'Your account balances as follows' +
+	'<form action="/accountmanager" method="post">'+
+	'<table>' +
+        accountSummary + 
+	'<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
+	'</table>' +
+	'</form>'
+        
+    ui.render(res,content);
 });
 
 app.get('/login', function (req, res) {
@@ -88,9 +115,18 @@ app.get('/update', (req, res) => {
   user.update("jane.doe","access_token","lasdjfjkljsadfk");
 });
 
-app.get('/add', (req, res) => {
-    user.add("john.doe","John Doe","Passw0rd");
-    res.send('Adding\n');
+app.post('/accountmanager', (req, res) => {
+    var content = 'Select a financial services provider' +
+	'<form action="/accounthandler" method="post">'+
+	'<table>' +
+	'<tr><td>Provider</td><td><select name="provider" onChange="this.form.submit()"><option>Select...</option><option>Acme Bank</select></td></tr>'+
+	'</table>' +
+	'</form>';
+    ui.render(res,content);
+});
+
+app.post('/accounthandler', (req, res) => {
+    ob.getAccountAccess(session.userid, asConfig, rsConfig, res);
 });
 
 app.listen(config.listen.port, config.listen.addr);
