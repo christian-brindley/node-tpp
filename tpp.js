@@ -11,6 +11,13 @@ var log = require ("./utils/log.js");
 var ui = require("./utils/ui.js");
 var ob = require("./utils/ob.js");
 
+function getRedirectUri(req)
+{
+    // TODO: build URI from request
+    // return "http://localhost:3000" + "/oauthreturn";
+    return req.protocol + "://" + req.get('Host') +  "/oauthreturn";
+
+}
 
 var authCheck = function(req, res, next) {
     if (req.session && req.session.loggedin) {
@@ -126,7 +133,7 @@ app.post('/accountmanager', (req, res) => {
 });
 
 app.post('/accounthandler', (req, res) => {
-    ob.getAccountAccess(session.userid, asConfig, rsConfig, res);
+    ob.getAccountAccess(session.userid, asConfig, rsConfig, res, getRedirectUri(req));
 });
 
 app.listen(config.listen.port, config.listen.addr);
