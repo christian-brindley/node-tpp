@@ -88,19 +88,19 @@ app.get('/', authCheck, function (req, res) {
 	'</table>' +
 	'</form>'
         
-    ui.render(res,content);
+    ui.render(req,res,content);
 });
 
 app.get('/login', function (req, res) {
-    render(res,
-	'Please log in<br/><br/>' +
+    render(req,res,
 	'<form action="/loginhandler" method="post">'+
 	'<table>' +
 	'<tr><td>Userid</td><td><input type="text" name="userid"></td></tr>'+
 	'<tr><td>Password</td><td><input type="password" name="password"></td></tr>'+
 	'<tr><td colspan="2" align="right"><input type="submit" value="Login"></td></tr>'+
 	'</table>' +
-	'</form>'
+	'</form>',
+        "userid"
     );
 });
 
@@ -129,7 +129,22 @@ app.post('/accountmanager', (req, res) => {
 	'<tr><td>Provider</td><td><select name="provider" onChange="this.form.submit()"><option>Select...</option><option>Acme Bank</select></td></tr>'+
 	'</table>' +
 	'</form>';
-    ui.render(res,content);
+    ui.render(req,res,content);
+});
+
+app.get('/logout', function (req, res) {
+	req.session.destroy();
+	res.writeHead(302, {'Location': '/'});
+	res.end();
+});
+
+app.get('/oauthreturn', function (req, res) {
+    var content = "<script>window.location.replace('/oauthresult?' + window.location.hash.substring(1));</script>";
+    ui.render(req,res,content);            
+});
+
+app.get('/oauthresult', function (req, res) {
+    ob.exchangeToken(req.query.code, asConfig, res, getRedirectUri(req),"/");
 });
 
 app.post('/accounthandler', (req, res) => {

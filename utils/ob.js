@@ -227,7 +227,45 @@ function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,
 
 }
 
+exchangeToken = function(code,asConfig,res,redirectUri,landingPage) {
+
+    log.debug("Exchange auth code for token");
+    
+    var cred = buildClientCred(asConfig);
+
+    log.debug("Signing client creds at " + config.signingservice);
+
+    var req = https.request(config.signingservice, getHttpOptions(OPERATION_SIGN,null), function(r) {
+        log.debug("Response: " + r.statusCode);
+        r.on('data', function(clientJwt) {
+            log.debug(clientJwt.toString());
+
+            exchangeTokenGetAccessToken(clientJwt,code,asConfig,res,redirectUri,landingPage);
+        });
+    });
+    req.write(JSON.stringify(cred));
+    req.end()
+}
+
+function exchangeTokenGetAccessToken(clientJwt,code,asConfig,res,redirectUri,landingPage) {
+    log.debug("Requesting access token at " + asConfig.token_endpoint);
+
+    var req = https.request(asConfig.token_endpoint, getHttpOptions(OPERATION_TOKEN,null), function(r) {
+        log.debug("Response: " + r.statusCode);
+        r.on('data', function(rsp) {
+            var jsonResponse = rsp.toString();
+            log.debug(jsonResponse);
+            var accessToken = JSON.parse(jsonResponse).access_token;
+            res.writeHead(302, {"Location": landingPage});            
+            res.end();
+        });
+    });
+    req.write("redirect_uri=" + redirectUri + "&grant_type=authorization_code&code=" + code + "&client_assertion_type=urn%3Aietf%3Aparams%3Aoauth%3Aclient-assertion-type%3Ajwt-bearer&client_assertion=" + clientJwt);
+    req.end()
+}
+
 module.exports = {
     getAccountAccess,
-    getAccountInfo
+    getAccountInfo,
+    exchangeToken
 };
