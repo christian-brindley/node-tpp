@@ -1,9 +1,19 @@
+/***************************************************************************/
+/*                                                                         */
+/* Mock TPP service                                                        */
+/*                                                                         */
+/***************************************************************************/
+
 const express = require('express');
 
 var session = require('express-session');
 var bodyParser = require('body-parser');
 
-// Funcs
+/***************************************************************************/
+/*                                                                         */
+/* Dependencies                                                            */
+/*                                                                         */
+/***************************************************************************/
 
 var discovery = require ("./utils/discovery.js");
 var user = require ("./utils/user.js");
@@ -11,13 +21,21 @@ var log = require ("./utils/log.js");
 var ui = require("./utils/ui.js");
 var ob = require("./utils/ob.js");
 
+/***************************************************************************/
+/*                                                                         */
+/* Funcs                                                                   */
+/*                                                                         */
+/***************************************************************************/
+
+// Build redirect URI relative to current request
+
 function getRedirectUri(req)
 {
-    // TODO: build URI from request
-    // return "http://localhost:3000" + "/oauthreturn";
     return req.protocol + "://" + req.get('Host') +  "/oauthreturn";
 
 }
+
+// Check whether authenticated
 
 var authCheck = function(req, res, next) {
     if (req.session && req.session.loggedin) {
@@ -28,6 +46,12 @@ var authCheck = function(req, res, next) {
       res.end();
     }
 };
+
+/***************************************************************************/
+/*                                                                         */
+/* Initialise                                                              */
+/*                                                                         */
+/***************************************************************************/
 
 // Load config
 
@@ -57,10 +81,11 @@ var rsDetails = "" +
 
 log.debug(rsDetails);
 
-// Constants
+// Main express handler
 
-// App
 const app = express();
+
+// Session handlera
 
 app.use(session({
     secret: '2C44-4D44-WppQ38S',
@@ -69,27 +94,47 @@ app.use(session({
 }));
 
 // parse application/json
+
 app.use(bodyParser.json());
 
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: true }));
 
+/***************************************************************************/
+/*                                                                         */
+/* / - Show bank balance summary  (or throw back to login)                 */
+/*                                                                         */
+/***************************************************************************/
+
 app.get('/', authCheck, function (req, res) {
-    var accounts = ob.getAccountInfo(req.session.userid);
+    // TODO: pull account info with access token
+
+    // ob.getAccountInfo(req.session.userid,res);
+
+    var accounts = null;
+
     var accountSummary = "";
+
     for (i = 0; accounts != null && i < accounts.size; i++) {
         accountSummary += "<tr><td>" + accounts[i].id + "</td><td>" + accounts[i].balance + "</td></tr>";
     }
+
     var content = 'Your account balances as follows' +
-	'<form action="/accountmanager" method="post">'+
-	'<table>' +
-        accountSummary + 
-	'<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
-	'</table>' +
-	'</form>'
-        
+        '<form action="/accountmanager" method="post">'+
+        '<table>' +
+        accountSummary +
+        '<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
+        '</table>' +
+        '</form>'
+
     ui.render(req,res,content);
 });
+
+/***************************************************************************/
+/*                                                                         */
+/* /login - Authenticate to TPP                                            */
+/*                                                                         */
+/***************************************************************************/
 
 app.get('/login', function (req, res) {
     render(req,res,
@@ -122,6 +167,12 @@ app.get('/update', (req, res) => {
   user.update("jane.doe","access_token","lasdjfjkljsadfk");
 });
 
+/***************************************************************************/
+/*                                                                         */
+/* /accountmanager - add a bank to dashboard                               */
+/*                                                                         */
+/***************************************************************************/
+
 app.post('/accountmanager', (req, res) => {
     var content = 'Select a financial services provider' +
 	'<form action="/accounthandler" method="post">'+
@@ -132,24 +183,49 @@ app.post('/accountmanager', (req, res) => {
     ui.render(req,res,content);
 });
 
+app.post('/accounthandler', (req, res) => {
+    ob.getAccountAccess(session.userid, asConfig, rsConfig, res, getRedirectUri(req));
+});
+
+/***************************************************************************/
+/*                                                                         */
+/* /logout - end user session                                              */
+/*                                                                         */
+/***************************************************************************/
+
 app.get('/logout', function (req, res) {
 	req.session.destroy();
 	res.writeHead(302, {'Location': '/'});
 	res.end();
 });
 
+/***************************************************************************/
+/*                                                                         */
+/* /oauthreturn - callback to OAuth2 redirect uri with auth code           */
+/*                uses js to pass back fragment as url variables to        */
+/*                /oauthresult                                             */
+/*                                                                         */
+/***************************************************************************/
+
 app.get('/oauthreturn', function (req, res) {
     var content = "<script>window.location.replace('/oauthresult?' + window.location.hash.substring(1));</script>";
     ui.render(req,res,content);            
 });
 
+/***************************************************************************/
+/*                                                                         */
+/* /oauthresult - send auth code to AM to get access token                 */
+/*                                                                         */
+/***************************************************************************/
+
 app.get('/oauthresult', function (req, res) {
-    ob.exchangeToken(req.query.code, asConfig, res, getRedirectUri(req),"/");
+    ob.exchangeToken(req.session.userid,req.query.code, asConfig, res, getRedirectUri(req),"/");
 });
 
-app.post('/accounthandler', (req, res) => {
-    ob.getAccountAccess(session.userid, asConfig, rsConfig, res, getRedirectUri(req));
-});
-
+/***************************************************************************/
+/*                                                                         */
+/* Kick off express                                                        */
+/*                                                                         */
+/***************************************************************************/
 app.listen(config.listen.port, config.listen.addr);
 console.log(`Running on http://${config.listen.addr}:${config.listen.port}`);

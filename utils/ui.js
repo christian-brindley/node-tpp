@@ -4,12 +4,12 @@ render = function(req,res,content,focus) {
 
     var stylesheet = "" +
         "<style>" +
-        "body { margin: 0 }" +
+        "body { margin: 0; background-color: #badff3 }" +
         "* {font-family: arial; font-size: 10pt }" +
-        "div.title { background-color: #f0f0f0; height: 25px; width: 100%; vertical-align: center; padding: 10px }" +
-        "div.content { padding: 10px; margin: auto }" +
-        "a:link, a:visited, a:active { font-weight: normal; text-decoration: none; color: black }" +
-        "a:hover { font-weight: normal; text-decoration: underline; color: black }" +
+        "div.title { background-color: #1E90FF; height: 20px; width: 100%; vertical-align: center; padding: 10px; color: white }" +
+        "div.content { padding: 10px; margin: auto; }" +
+        "a:link, a:visited, a:active { font-weight: normal; text-decoration: none; color: white }" +
+        "a:hover { font-weight: normal; text-decoration: underline; color: white }" +
         "</style>";
 
     var bodytag = focus ? "<body onload=\"document.all['" + focus + "'].focus()\">" : "<body>";

@@ -30,6 +30,7 @@ function getHttpOptions(operation,authorization)
             break;
 
         case OPERATION_ACCESSINTENT:
+        case OPERATION_GETACCOUNTS:
             httpHeaders = { 
                 "Content-Type" : "application/json",
                 "Authorization" : "Bearer " + authorization
@@ -55,24 +56,41 @@ function getHttpOptions(operation,authorization)
 
 
 function getAccountIds(token) {
-    return null;
+         
 }
 
-getAccountInfo = function(userid) {
-    var u = user.get(userid);
-    if (u == null) {
-        return null;
-    }
-
+getAccountInfo = function(userid,req,res) {
+    var u = user.getuserid();
     var token = u.access_token;
 
     if (token == null)
     {
-        return null;
+       // blank account info  
     }
     
     var accountids = getAccountIds(token);
+
+    return accountids;
 }
+
+function renderAccountInfo(accountinfo,res)
+{
+    var accountSummary = "";
+    for (i = 0; accounts != null && i < accounts.size; i++) {
+        accountSummary += "<tr><td>" + accounts[i].id + "</td><td>" + accounts[i].balance + "</td></tr>";
+    }
+    var content = 'Your account balances as follows' +
+        '<form action="/accountmanager" method="post">'+
+        '<table>' +
+        accountSummary +
+        '<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
+        '</table>' +
+        '</form>'
+
+    ui.render(req,res,content);
+
+}
+
 
 function buildClientCred(asConfig) {
     var now = Math.round((new Date).getTime() / 1000);
@@ -227,7 +245,7 @@ function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,
 
 }
 
-exchangeToken = function(code,asConfig,res,redirectUri,landingPage) {
+exchangeToken = function(userid,code,asConfig,res,redirectUri,landingPage) {
 
     log.debug("Exchange auth code for token");
     
@@ -240,14 +258,14 @@ exchangeToken = function(code,asConfig,res,redirectUri,landingPage) {
         r.on('data', function(clientJwt) {
             log.debug(clientJwt.toString());
 
-            exchangeTokenGetAccessToken(clientJwt,code,asConfig,res,redirectUri,landingPage);
+            exchangeTokenGetAccessToken(userid,clientJwt,code,asConfig,res,redirectUri,landingPage);
         });
     });
     req.write(JSON.stringify(cred));
     req.end()
 }
 
-function exchangeTokenGetAccessToken(clientJwt,code,asConfig,res,redirectUri,landingPage) {
+function exchangeTokenGetAccessToken(userid,clientJwt,code,asConfig,res,redirectUri,landingPage) {
     log.debug("Requesting access token at " + asConfig.token_endpoint);
 
     var req = https.request(asConfig.token_endpoint, getHttpOptions(OPERATION_TOKEN,null), function(r) {
@@ -256,6 +274,7 @@ function exchangeTokenGetAccessToken(clientJwt,code,asConfig,res,redirectUri,lan
             var jsonResponse = rsp.toString();
             log.debug(jsonResponse);
             var accessToken = JSON.parse(jsonResponse).access_token;
+            user.update(userid,"access_token",accessToken);            
             res.writeHead(302, {"Location": landingPage});            
             res.end();
         });
