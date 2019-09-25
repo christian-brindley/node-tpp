@@ -372,6 +372,9 @@ function exchangeTokenGetAccessToken(userid,clientJwt,code,asConfig,res,redirect
             var jsonResponse = rsp.toString();
             var json = JSON.parse(jsonResponse);
             log.debug(JSON.stringify(json,null,2));
+
+            log.debug("Saving access and refresh token to user database",true);
+
             var accessToken = json.access_token;
             var refreshToken = json.refresh_token;
             user.update(userid,"access_token",accessToken);            
