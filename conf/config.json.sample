@@ -1,17 +1,19 @@
 {
     "debug" : true,
     "listen" : { 
+        "prot" : "https",
         "addr" : "localhost",
         "port" : 3000
     },
     "discovery" : {
-        "rs" : "https://openig.psd2acceldemo.fridam.aeet-forgerock.com/obRSDiscovery",
+        "rs" : "https://openig.psd2acceldemo.fridam.aeet-forgerock.com/obRSDiscovery/",
         "as" : "https://openig.psd2acceldemo.fridam.aeet-forgerock.com/oauth2/realms/root/realms/openbanking/.well-known/openid-configuration"
     },
     "signingservice" : "https://jwkms.ob.forgerock.financial:443/api/crypto/signClaims",
     "transportcert" : {
-        "file" : "conf/transport.p12",
-        "pass" : "Passw0rd"
+        "key" :  "/certs/transport.key",
+        "cert" : "/certs/transport.pem"
     },
-    "userdb" : "./userdb/users.json"
+    "userdb" : "/userdb/users.json",
+    "clientid" : "ac22c88a-c191-4f91-975b-a80cc4478105"
 }
