@@ -1,19 +1,41 @@
+/***************************************************************************/
+/*                                                                         */
+/* Open Banking calls                                                      */
+/*                                                                         */
+/***************************************************************************/
+
 var user = require("./user.js");
 var config = require("../conf/config.json");
 var fs = require('fs');
 var log = require("./log.js");
-// var https = require("https");
-var https = require('http-debug').https;
-https.debug = 1;
+var https;
+if (config.debug) {
+    https = require('http-debug').https;
+    https.debug = 1;
+}
+else {
+    https = require("https");
+}
 
-
+// Constants
 
 var OPERATION_SIGN         = 1;
 var OPERATION_TOKEN        = 2;
 var OPERATION_ACCESSINTENT = 3;
+var OPERATION_GETACCOUNTS  = 4;
+
+/***************************************************************************/
+/*                                                                         */
+/* Utility funcs                                                           */
+/*                                                                         */
+/***************************************************************************/
+
+// Set up HTTP options for each type of call 
 
 function getHttpOptions(operation,authorization)
 {
+    var method = 'POST';
+
     switch (operation) {
 
         case OPERATION_SIGN:
@@ -29,8 +51,15 @@ function getHttpOptions(operation,authorization)
             }
             break;
 
-        case OPERATION_ACCESSINTENT:
         case OPERATION_GETACCOUNTS:
+            method = 'GET';
+            httpHeaders = { 
+                "Content-Type" : "application/json",
+                "Authorization" : "Bearer " + authorization,
+            }
+            break;
+
+        case OPERATION_ACCESSINTENT:
             httpHeaders = { 
                 "Content-Type" : "application/json",
                 "Authorization" : "Bearer " + authorization
@@ -46,7 +75,7 @@ function getHttpOptions(operation,authorization)
 
         
     return {
-        method: 'POST',
+        method: method,
         key: fs.readFileSync(config.transportcert.key),
         cert: fs.readFileSync(config.transportcert.cert),  
         headers: httpHeaders
@@ -54,43 +83,7 @@ function getHttpOptions(operation,authorization)
 
 }
 
-
-function getAccountIds(token) {
-         
-}
-
-getAccountInfo = function(userid,req,res) {
-    var u = user.getuserid();
-    var token = u.access_token;
-
-    if (token == null)
-    {
-       // blank account info  
-    }
-    
-    var accountids = getAccountIds(token);
-
-    return accountids;
-}
-
-function renderAccountInfo(accountinfo,res)
-{
-    var accountSummary = "";
-    for (i = 0; accounts != null && i < accounts.size; i++) {
-        accountSummary += "<tr><td>" + accounts[i].id + "</td><td>" + accounts[i].balance + "</td></tr>";
-    }
-    var content = 'Your account balances as follows' +
-        '<form action="/accountmanager" method="post">'+
-        '<table>' +
-        accountSummary +
-        '<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
-        '</table>' +
-        '</form>'
-
-    ui.render(req,res,content);
-
-}
-
+// Build unsigned client credential 
 
 function buildClientCred(asConfig) {
     var now = Math.round((new Date).getTime() / 1000);
@@ -100,6 +93,98 @@ function buildClientCred(asConfig) {
     log.debug(JSON.stringify(cred));
     return cred;
 }
+
+/***************************************************************************/
+/*                                                                         */
+/* Load account balances from accounts endpoint                            */
+/*                                                                         */
+/***************************************************************************/
+
+// Main entry point
+
+getAccountInfo = function(landingPage,userid,rsConfig,userReq,res) {
+    var u = user.get(userid);
+    var token = u.access_token;
+
+    if (token == null)
+    {
+        // Terminate
+        res.writeHead(302, {"Location": landingPage});            
+        return;
+    }
+    
+    getAccountInfoGetAccountIds(landingPage,userid,rsConfig,userReq,res,token);
+}
+
+// Fetch a list of account IDs consented to 
+
+function getAccountInfoGetAccountIds(landingPage,userid,rsConfig,userReq,res,token) {
+         
+    log.debug("Fetching account IDs");
+    var accountsEndpoint = rsConfig.Data.AccountAndTransactionAPI[0].Links.GetAccounts;    
+    var req = https.request(accountsEndpoint, getHttpOptions(OPERATION_GETACCOUNTS,token), function(r) {
+        log.debug("Response: " + r.statusCode);
+        r.on('data', function(rsp) {
+            var jsonResponse = rsp.toString();
+            
+            log.debug(jsonResponse);
+            var accountData = JSON.parse(jsonResponse);
+            var accounts = accountData.Data.Account;
+            getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,token,accounts);
+            
+        });
+    });
+    req.end()
+}
+
+// For each account ID, load the balance into the user session
+
+function getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,token,accounts,index) {
+    if (index == null) {
+        index = 0;
+        userReq.session.accountInfo = new Array();
+    }
+    else if (index == accounts.length) {
+        // Wrap up
+        res.writeHead(302, {"Location": landingPage});            
+        res.end();
+        return;
+    }
+
+    var accountId = accounts[index].AccountId; 
+   
+
+    log.debug("Fetching info for account ID [" + accountId + "]");
+    var balancesEndpoint = rsConfig.Data.AccountAndTransactionAPI[0].Links.GetAccountBalances;    
+    var uri = balancesEndpoint.replace("{AccountId}",accountId);
+    var req = https.request(uri, getHttpOptions(OPERATION_GETACCOUNTS,token), function(r) {
+        log.debug("Response: " + r.statusCode);
+        r.on('data', function(rsp) {
+            var jsonResponse = rsp.toString();
+            
+            log.debug(jsonResponse);
+            var accountData = JSON.parse(jsonResponse);
+            var amount = accountData.Data.Balance[0].Amount;
+            userReq.session.accountInfo.push( { "accountid": accountId, "balance" : amount.Amount, "currency": amount.Currency });
+            getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,token,accounts,index + 1);
+            
+        });
+    });
+    req.end()
+
+
+}
+
+/***************************************************************************/
+/*                                                                         */
+/* Set up hybrid flow for obtaining token for accounts endpoint            */
+/*                                                                         */
+/* 1. Get an access token to register intent                               */
+/* 2. Register intent with access token                                    */
+/* 3. Build signed request object with intent id                           */
+/* 4. Redirect user to authorization endpoint with request object          */
+/*                                                                         */
+/***************************************************************************/
 
 getAccountAccess = function(userid,asConfig,rsConfig,res,redirectUri) {
 
@@ -244,6 +329,13 @@ function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,
     req.end()
 
 }
+
+/***************************************************************************/
+/*                                                                         */
+/* Complete hybrid flow for account access token - exchange auth code for  */
+/* access token                                                            */
+/*                                                                         */
+/***************************************************************************/
 
 exchangeToken = function(userid,code,asConfig,res,redirectUri,landingPage) {
 

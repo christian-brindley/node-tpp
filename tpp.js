@@ -102,33 +102,45 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 /***************************************************************************/
 /*                                                                         */
-/* / - Show bank balance summary  (or throw back to login)                 */
+/* / - Show balance summary  (or throw back to login)                      */
 /*                                                                         */
 /***************************************************************************/
 
 app.get('/', authCheck, function (req, res) {
-    // TODO: pull account info with access token
 
-    // ob.getAccountInfo(req.session.userid,res);
-
-    var accounts = null;
-
-    var accountSummary = "";
-
-    for (i = 0; accounts != null && i < accounts.size; i++) {
-        accountSummary += "<tr><td>" + accounts[i].id + "</td><td>" + accounts[i].balance + "</td></tr>";
-    }
-
-    var content = 'Your account balances as follows' +
+    var content = '' +
         '<form action="/accountmanager" method="post">'+
         '<table>' +
-        accountSummary +
-        '<tr><td colspan="2" align="right"><input type="submit" value="Add"></td></tr>'+
+        '<tr><td>No banks currently linked.</td></tr>' +
+        '<tr><td align="right"><input type="submit" value="Add"></td></tr>'+
         '</table>' +
         '</form>'
 
     ui.render(req,res,content);
 });
+
+app.get('/balances', function (req, res) {
+
+    var accountSummary = "";
+    var accounts = req.session.accountInfo;
+
+    for (i = 0; accounts != null && i < accounts.length; i++) {
+        accountSummary += "<tr><td class='balances'>Acme Bank</td><td class='balances'>" + accounts[i].accountid + "</td><td class='balances'>" + accounts[i].currency + "</td><td class='balances'>" + accounts[i].balance + "</td></tr>";
+    }
+
+    var content = 'Your account balances as follows <br/><br/>' +
+        '<table>' +
+        '<tr><th class="balances">Bank</th><th class="balances">Account</th><th class="balances">Currency</th><th class="balances">Amount</th>' +
+        accountSummary +
+        '</table>';
+
+    ui.render(req,res,content);
+});
+
+app.get('/refreshbalances', function (req, res) {
+    ob.getAccountInfo("/balances",req.session.userid,rsConfig,req,res);
+});
+
 
 /***************************************************************************/
 /*                                                                         */
@@ -162,11 +174,6 @@ app.post('/loginhandler', function (req, res) {
   }
 });
 
-app.get('/update', (req, res) => {
-  res.send('Updating\n');
-  user.update("jane.doe","access_token","lasdjfjkljsadfk");
-});
-
 /***************************************************************************/
 /*                                                                         */
 /* /accountmanager - add a bank to dashboard                               */
@@ -174,10 +181,10 @@ app.get('/update', (req, res) => {
 /***************************************************************************/
 
 app.post('/accountmanager', (req, res) => {
-    var content = 'Select a financial services provider' +
+    var content = '' +
 	'<form action="/accounthandler" method="post">'+
 	'<table>' +
-	'<tr><td>Provider</td><td><select name="provider" onChange="this.form.submit()"><option>Select...</option><option>Acme Bank</select></td></tr>'+
+	'<tr><td>Choose a provider</td><td><select name="provider" onChange="this.form.provider.disabled = true; this.form.submit()"><option>Select...</option><option>Acme Bank</select></td></tr>'+
 	'</table>' +
 	'</form>';
     ui.render(req,res,content);
@@ -219,7 +226,7 @@ app.get('/oauthreturn', function (req, res) {
 /***************************************************************************/
 
 app.get('/oauthresult', function (req, res) {
-    ob.exchangeToken(req.session.userid,req.query.code, asConfig, res, getRedirectUri(req),"/");
+    ob.exchangeToken(req.session.userid,req.query.code, asConfig, res, getRedirectUri(req),"/refreshbalances");
 });
 
 /***************************************************************************/
