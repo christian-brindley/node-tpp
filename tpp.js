@@ -59,7 +59,9 @@ var config = require("./conf/config.json",);
 
 // Fetch AS/RS info
 
+log.debug("Loading AS configuration from AM",true);
 var asConfig = discovery.fetchRemoteConfig(config.discovery.as,config.debug);
+
 
 log.debug("AS details");
 var asDetails = "" +
@@ -70,8 +72,10 @@ var asDetails = "" +
 
 log.debug(asDetails);
 
+log.debug("Loading OB endpoint configuration from bank API",true);
 var rsConfig = discovery.fetchRemoteConfig(config.discovery.rs,config.debug);
 var rsAccountEndpoints = rsConfig.Data.AccountAndTransactionAPI[0].Links;
+
 
 log.debug("RS details");
 var rsDetails = "" +
@@ -128,7 +132,7 @@ app.get('/balances', function (req, res) {
         accountSummary += "<tr><td class='balances'>Acme Bank</td><td class='balances'>" + accounts[i].accountid + "</td><td class='balances'>" + accounts[i].currency + "</td><td class='balances'>" + accounts[i].balance + "</td></tr>";
     }
 
-    var content = 'Your account balances as follows <br/><br/>' +
+    var content = 'Your account balances are as follows <br/><br/>' +
         '<table>' +
         '<tr><th class="balances">Bank</th><th class="balances">Account</th><th class="balances">Currency</th><th class="balances">Amount</th>' +
         accountSummary +

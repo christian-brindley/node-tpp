@@ -5,8 +5,8 @@ fetchRemoteConfig = function(url) {
     log.debug("Requesting config from " + url);
     var res = request('GET', url);
     var data = res.getBody().toString();
-    log.debug(data);
     var json = JSON.parse(data);
+    log.debug(JSON.stringify(json,null,2));
     return json;
 }
 

@@ -90,7 +90,7 @@ function buildClientCred(asConfig) {
     var exp = now + 600;
     var cred = { "sub" : config.clientid, "aud" : asConfig.issuer, "exp" : exp };
     log.debug("Built client cred");
-    log.debug(JSON.stringify(cred));
+    log.debug(JSON.stringify(cred,null,2));
     return cred;
 }
 
@@ -112,7 +112,9 @@ getAccountInfo = function(landingPage,userid,rsConfig,userReq,res) {
         res.writeHead(302, {"Location": landingPage});            
         return;
     }
-    
+   
+    log.debug("Fetching list of accounts for this intent",true);
+ 
     getAccountInfoGetAccountIds(landingPage,userid,rsConfig,userReq,res,token);
 }
 
@@ -126,10 +128,10 @@ function getAccountInfoGetAccountIds(landingPage,userid,rsConfig,userReq,res,tok
         log.debug("Response: " + r.statusCode);
         r.on('data', function(rsp) {
             var jsonResponse = rsp.toString();
-            
-            log.debug(jsonResponse);
             var accountData = JSON.parse(jsonResponse);
+            log.debug(JSON.stringify(accountData,null,2));
             var accounts = accountData.Data.Account;
+            log.debug("Loading balances for each account",true);
             getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,token,accounts);
             
         });
@@ -162,8 +164,8 @@ function getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,t
         r.on('data', function(rsp) {
             var jsonResponse = rsp.toString();
             
-            log.debug(jsonResponse);
             var accountData = JSON.parse(jsonResponse);
+            log.debug(JSON.stringify(accountData,null,2));
             var amount = accountData.Data.Balance[0].Amount;
             userReq.session.accountInfo.push( { "accountid": accountId, "balance" : amount.Amount, "currency": amount.Currency });
             getAccountInfoLoadIntoSession(landingPage,userid,rsConfig,userReq,res,token,accounts,index + 1);
@@ -190,7 +192,7 @@ getAccountAccess = function(userid,asConfig,rsConfig,res,redirectUri) {
 
     // First get access token for intent
 
-    log.debug("Registering access intent");
+    log.debug("Registering access intent",true);
     
     var cred = buildClientCred(asConfig);
 
@@ -204,7 +206,7 @@ getAccountAccess = function(userid,asConfig,rsConfig,res,redirectUri) {
             getAccountAccessGetAccessToken(clientJwt,userid,asConfig,rsConfig,res,redirectUri);
         });
     });
-    req.write(JSON.stringify(cred));
+    req.write(JSON.stringify(cred,null,2));
     req.end()
 
     // Use access token to register intent
@@ -215,14 +217,15 @@ getAccountAccess = function(userid,asConfig,rsConfig,res,redirectUri) {
 }
 
 function getAccountAccessGetAccessToken(clientJwt,userid,asConfig,rsConfig,res,redirectUri) {
-    log.debug("Requesting access token at " + asConfig.token_endpoint);
+    log.debug("Requesting access token");
 
     var req = https.request(asConfig.token_endpoint, getHttpOptions(OPERATION_TOKEN,null), function(r) {
         log.debug("Response: " + r.statusCode);
         r.on('data', function(rsp) {
             var jsonResponse = rsp.toString();
-            log.debug(jsonResponse);
-            var accessToken = JSON.parse(jsonResponse).access_token;
+            var json = JSON.parse(jsonResponse);
+            log.debug(JSON.stringify(json,null,2));
+            var accessToken = json.access_token;
             getAccountAccessCreateAccessIntent(accessToken,userid,asConfig,rsConfig,res,redirectUri);
         });
     });
@@ -238,8 +241,8 @@ function getAccountAccessCreateAccessIntent(accessToken,userid,asConfig,rsConfig
         r.on('data', function(rsp) {
             var jsonResponse = rsp.toString();
             
-            log.debug(jsonResponse);
             var intent = JSON.parse(jsonResponse);
+            log.debug(JSON.stringify(intent,null,2));
             var consentId = intent.Data.ConsentId;
             getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,redirectUri);
         });
@@ -300,6 +303,8 @@ function requestObject(intentId,asConfig,redirectUri) {
 
 function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,redirectUri) {
 
+    log.debug("Creating consent request", true);
+
     log.debug("Signing authz request object");
 
     var req = https.request(config.signingservice, getHttpOptions(OPERATION_SIGN,null), function(r) {
@@ -308,7 +313,7 @@ function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,
             var signedRequest = rsp.toString();
             log.debug(signedRequest);
 
-            log.debug("Redirecting the user");
+            log.debug("Redirecting the user to consent",true);
             var location = asConfig.authorization_endpoint + "?" +
                  "client_id=" + config.clientid + "&" + 
                  "response_type=code%20id_token" + "&" + 
@@ -339,6 +344,7 @@ function getAccountAccessAuthorizeIntent(consentId,userid,asConfig,rsConfig,res,
 
 exchangeToken = function(userid,code,asConfig,res,redirectUri,landingPage) {
 
+    log.debug("User back from consent - processing authz code",true);
     log.debug("Exchange auth code for token");
     
     var cred = buildClientCred(asConfig);
@@ -358,15 +364,18 @@ exchangeToken = function(userid,code,asConfig,res,redirectUri,landingPage) {
 }
 
 function exchangeTokenGetAccessToken(userid,clientJwt,code,asConfig,res,redirectUri,landingPage) {
-    log.debug("Requesting access token at " + asConfig.token_endpoint);
+    log.debug("Requesting access token");
 
     var req = https.request(asConfig.token_endpoint, getHttpOptions(OPERATION_TOKEN,null), function(r) {
         log.debug("Response: " + r.statusCode);
         r.on('data', function(rsp) {
             var jsonResponse = rsp.toString();
-            log.debug(jsonResponse);
-            var accessToken = JSON.parse(jsonResponse).access_token;
+            var json = JSON.parse(jsonResponse);
+            log.debug(JSON.stringify(json,null,2));
+            var accessToken = json.access_token;
+            var refreshToken = json.refresh_token;
             user.update(userid,"access_token",accessToken);            
+            user.update(userid,"refresh_token",refreshToken);            
             res.writeHead(302, {"Location": landingPage});            
             res.end();
         });

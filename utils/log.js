@@ -1,7 +1,20 @@
 var config = require("../conf/config.json");
 
-debug = function(message) {
+function stageMessage(message) {
+    return "**********************************************************************" +
+           "\n" +
+           "\n" +
+           message +
+           "\n" +
+           "\n" +
+           "**********************************************************************";
+}
+
+debug = function(message,stage) {
     if (config.debug) {
+        if (stage) {
+            message = stageMessage(message);
+        }
         console.log("-------------------------------------------------------------------");
         console.log(message);
     }
